@@ -442,6 +442,12 @@ def add_department():
     return render_template('department_form.html', department=None, organizations=organizations)
 
 
+@app.route('/departments')
+def departments_list():
+    departments = Department.query.all()
+    return render_template('departments.html', departments=departments)
+
+
 @app.route('/positions')
 def positions_list():
     positions = Position.query.all()
