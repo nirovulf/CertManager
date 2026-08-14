@@ -1,4 +1,21 @@
  * Serving Flask app 'app'
  * Debug mode: on
-Address already in use
-Port 5000 is in use by another program. Either identify and stop that program, or start the server with a different port.
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://21.0.4.53:5000
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 592-195-843
+127.0.0.1 - - [14/Aug/2026 04:56:03] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:06] "[32mPOST /login HTTP/1.1[0m" 302 -
+127.0.0.1 - - [14/Aug/2026 04:56:08] "[32mPOST /login HTTP/1.1[0m" 302 -
+127.0.0.1 - - [14/Aug/2026 04:56:08] "[31m[1mPOST / HTTP/1.1[0m" 405 -
+127.0.0.1 - - [14/Aug/2026 04:56:11] "GET /import-multiple HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:13] "GET /import-multiple HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:15] "GET /import HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:17] "GET /import HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:25] "GET /import-multiple HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:56:27] "GET /import-multiple HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 04:57:01] "GET /import-multiple HTTP/1.1" 200 -

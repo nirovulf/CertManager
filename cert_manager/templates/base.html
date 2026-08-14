@@ -53,6 +53,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="{{ url_for('import_multiple_certificates') }}" class="{% if request.endpoint == 'import_multiple_certificates' %}active{% endif %}">
+                                <i class="bi bi-cloud-upload"></i> Массовый импорт
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="{{ url_for('certificates_list') }}" class="{% if request.endpoint == 'certificates_list' %}active{% endif %}">
                                 <i class="bi bi-file-earmark-text"></i> Все сертификаты
                             </a>
