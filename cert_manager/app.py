@@ -30,7 +30,7 @@ db = SQLAlchemy(app)
 @app.context_processor
 def inject_timezone():
     from datetime import timezone
-    return dict(timezone=timezone)
+    return dict(timezone=timezone, abs=abs)
 
 # Создаем папку для загрузок
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
