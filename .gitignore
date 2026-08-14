@@ -1,19 +1,41 @@
 ```
-# Python
-__pycache__/
+# Compiled Python files
 *.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-.env
-.env.local
-.env.*
+__pycache__/
 
 # Logs
 *.log
+server.log
+
+# Environment files
+.env
+.env.local
+*.env.*
 
 # Dependencies
-cert_manager/venv/
+.venv/
+venv/
+node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Cache directories
+.mypy_cache/
+.pytest_cache/
 ```

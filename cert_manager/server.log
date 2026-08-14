@@ -19,3 +19,7 @@
 127.0.0.1 - - [14/Aug/2026 04:56:25] "GET /import-multiple HTTP/1.1" 200 -
 127.0.0.1 - - [14/Aug/2026 04:56:27] "GET /import-multiple HTTP/1.1" 200 -
 127.0.0.1 - - [14/Aug/2026 04:57:01] "GET /import-multiple HTTP/1.1" 200 -
+ * Detected change in '/workspace/cert_manager/app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 592-195-843
