@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{% if user %}Редактирование{% else %}Добавление{% endif %} пользователя{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-circle"></i>
+                    {% if user %}Редактирование пользователя "{{ user.username }}"{% else %}Новый пользователь{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Имя пользователя <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{ user.username if user else '' }}" required>
+                        <div class="form-text">Логин для входа в систему</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            Пароль {% if not user %}<span class="text-danger">*</span>{% else %}(оставьте пустым, чтобы не менять){% endif %}
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password" {% if not user %}required{% endif %}>
+                        {% if user %}
+                        <div class="form-text">Введите новый пароль или оставьте поле пустым</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" {% if user and user.is_admin %}checked{% endif %}>
+                            <label class="form-check-label" for="is_admin">
+                                Права администратора
+                            </label>
+                        </div>
+                        <div class="form-text">Администраторы могут управлять пользователями</div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{{ url_for('users_list') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

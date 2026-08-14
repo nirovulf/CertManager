@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from datetime import datetime, timedelta, timezone
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -19,6 +21,23 @@ db = SQLAlchemy(app)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # === МОДЕЛИ ДАННЫХ ===
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
 
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -253,21 +272,156 @@ def find_or_create_employee(parsed_data):
     return None
 
 
+# === ДЕКОРАТОР АВТОРИЗАЦИИ ===
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Пожалуйста, войдите в систему', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 # === МАРШРУТЫ ===
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['is_admin'] = user.is_admin
+            flash('Вы успешно вошли в систему', 'success')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash('Неверное имя пользователя или пароль', 'error')
+    
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Вы вышли из системы', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/users')
+@login_required
+def users_list():
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('users.html', users=users)
+
+
+@app.route('/user/add', methods=['GET', 'POST'])
+@login_required
+def add_user():
+    if not session.get('is_admin'):
+        flash('Доступ запрещён. Только администраторы могут создавать пользователей.', 'error')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        is_admin = request.form.get('is_admin') == 'on'
+        
+        if not username or not password:
+            flash('Имя пользователя и пароль обязательны', 'error')
+            return redirect(request.url)
+        
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Пользователь с таким именем уже существует', 'error')
+            return redirect(request.url)
+        
+        user = User(username=username, is_admin=is_admin)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'Пользователь {username} успешно создан', 'success')
+        return redirect(url_for('users_list'))
+    
+    return render_template('user_form.html', user=None)
+
+
+@app.route('/user/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_user(user_id):
+    if not session.get('is_admin'):
+        flash('Доступ запрещён. Только администраторы могут редактировать пользователей.', 'error')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        is_admin = request.form.get('is_admin') == 'on'
+        
+        if username != user.username:
+            existing_user = User.query.filter_by(username=username).first()
+            if existing_user:
+                flash('Пользователь с таким именем уже существует', 'error')
+                return redirect(request.url)
+            user.username = username
+        
+        user.is_admin = is_admin
+        
+        if password:
+            user.set_password(password)
+        
+        db.session.commit()
+        flash('Данные пользователя обновлены', 'success')
+        return redirect(url_for('users_list'))
+    
+    return render_template('user_form.html', user=user)
+
+
+@app.route('/user/<int:user_id>/delete', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not session.get('is_admin'):
+        flash('Доступ запрещён. Только администраторы могут удалять пользователей.', 'error')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Нельзя удалить самого себя
+    if user.id == session.get('user_id'):
+        flash('Нельзя удалить свою собственную учётную запись', 'error')
+        return redirect(url_for('users_list'))
+    
+    db.session.delete(user)
+    db.session.commit()
+    flash('Пользователь удалён', 'success')
+    return redirect(url_for('users_list'))
+
+
 @app.route('/')
+@login_required
 def index():
     certificates = Certificate.query.order_by(Certificate.imported_at.desc()).all()
     return render_template('index.html', certificates=certificates)
 
 
 @app.route('/certificates')
+@login_required
 def certificates_list():
     certificates = Certificate.query.order_by(Certificate.not_after.asc()).all()
     return render_template('certificates.html', certificates=certificates)
 
 
 @app.route('/import', methods=['GET', 'POST'])
+@login_required
 def import_certificate():
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -325,18 +479,21 @@ def import_certificate():
 
 
 @app.route('/certificate/<int:cert_id>')
+@login_required
 def certificate_detail(cert_id):
     certificate = Certificate.query.get_or_404(cert_id)
     return render_template('certificate_detail.html', certificate=certificate)
 
 
 @app.route('/employees')
+@login_required
 def employees_list():
     employees = Employee.query.order_by(Employee.last_name.asc()).all()
     return render_template('employees.html', employees=employees)
 
 
 @app.route('/employee/add', methods=['GET', 'POST'])
+@login_required
 def add_employee():
     if request.method == 'POST':
         employee = Employee(
@@ -359,6 +516,7 @@ def add_employee():
 
 
 @app.route('/employee/<int:emp_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_employee(emp_id):
     employee = Employee.query.get_or_404(emp_id)
     if request.method == 'POST':
@@ -379,12 +537,14 @@ def edit_employee(emp_id):
 
 
 @app.route('/organizations')
+@login_required
 def organizations_list():
     organizations = Organization.query.all()
     return render_template('organizations.html', organizations=organizations)
 
 
 @app.route('/organization/<int:org_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_organization(org_id):
     org = Organization.query.get_or_404(org_id)
     if request.method == 'POST':
@@ -399,6 +559,7 @@ def edit_organization(org_id):
 
 
 @app.route('/organization/add', methods=['GET', 'POST'])
+@login_required
 def add_organization():
     if request.method == 'POST':
         org = Organization(
@@ -415,6 +576,7 @@ def add_organization():
 
 
 @app.route('/department/<int:dept_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_department(dept_id):
     dept = Department.query.get_or_404(dept_id)
     if request.method == 'POST':
@@ -428,6 +590,7 @@ def edit_department(dept_id):
 
 
 @app.route('/department/add', methods=['GET', 'POST'])
+@login_required
 def add_department():
     if request.method == 'POST':
         dept = Department(
@@ -443,18 +606,21 @@ def add_department():
 
 
 @app.route('/departments')
+@login_required
 def departments_list():
     departments = Department.query.all()
     return render_template('departments.html', departments=departments)
 
 
 @app.route('/positions')
+@login_required
 def positions_list():
     positions = Position.query.all()
     return render_template('positions.html', positions=positions)
 
 
 @app.route('/position/<int:pos_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_position(pos_id):
     position = Position.query.get_or_404(pos_id)
     if request.method == 'POST':
@@ -466,6 +632,7 @@ def edit_position(pos_id):
 
 
 @app.route('/position/add', methods=['GET', 'POST'])
+@login_required
 def add_position():
     if request.method == 'POST':
         position = Position(name=request.form['name'])
@@ -477,12 +644,14 @@ def add_position():
 
 
 @app.route('/tokens')
+@login_required
 def tokens_list():
     tokens = Token.query.all()
     return render_template('tokens.html', tokens=tokens)
 
 
 @app.route('/token/<int:token_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_token(token_id):
     token = Token.query.get_or_404(token_id)
     if request.method == 'POST':
@@ -500,6 +669,7 @@ def edit_token(token_id):
 
 
 @app.route('/token/add', methods=['GET', 'POST'])
+@login_required
 def add_token():
     if request.method == 'POST':
         token = Token(
@@ -519,12 +689,14 @@ def add_token():
 
 
 @app.route('/token-types')
+@login_required
 def token_types_list():
     token_types = TokenType.query.all()
     return render_template('token_types.html', token_types=token_types)
 
 
 @app.route('/token-type/<int:type_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_token_type(type_id):
     token_type = TokenType.query.get_or_404(type_id)
     if request.method == 'POST':
@@ -537,6 +709,7 @@ def edit_token_type(type_id):
 
 
 @app.route('/token-type/add', methods=['GET', 'POST'])
+@login_required
 def add_token_type():
     if request.method == 'POST':
         token_type = TokenType(
@@ -551,6 +724,7 @@ def add_token_type():
 
 
 @app.route('/api/employees/search')
+@login_required
 def search_employees():
     query = request.args.get('q', '')
     employees = Employee.query.filter(
@@ -575,6 +749,14 @@ def search_employees():
 def init_db():
     with app.app_context():
         db.create_all()
+        
+        # Создаём пользователя администратора по умолчанию если нет пользователей
+        if not User.query.first():
+            admin = User(username='admin', is_admin=True)
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            print("Создан пользователь admin с паролем admin123")
         
         # Добавляем начальные данные если пусто
         if not TokenType.query.first():
