@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -25,7 +25,8 @@ class Organization(db.Model):
     name = db.Column(db.String(200), unique=True, nullable=False)
     inn = db.Column(db.String(12))
     kpp = db.Column(db.String(9))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ogrn = db.Column(db.String(13))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def __repr__(self):
         return f'<Organization {self.name}>'
@@ -36,7 +37,7 @@ class Department(db.Model):
     name = db.Column(db.String(200), nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     organization = db.relationship('Organization', backref=db.backref('departments', lazy=True))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def __repr__(self):
         return f'<Department {self.name}>'
@@ -45,7 +46,7 @@ class Department(db.Model):
 class Position(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def __repr__(self):
         return f'<Position {self.name}>'
@@ -62,8 +63,8 @@ class Employee(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'))
     position = db.relationship('Position', backref=db.backref('employees', lazy=True))
     department = db.relationship('Department', backref=db.backref('employees', lazy=True))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     @property
     def full_name(self):
@@ -77,7 +78,7 @@ class TokenType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)  # Например: Рутокен, JaCarta, eToken
     description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def __repr__(self):
         return f'<TokenType {self.name}>'
@@ -94,7 +95,7 @@ class Token(db.Model):
     issued_at = db.Column(db.Date)
     returned_at = db.Column(db.Date)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def __repr__(self):
         return f'<Token {self.serial_number}>'
@@ -113,7 +114,7 @@ class Certificate(db.Model):
     token_id = db.Column(db.Integer, db.ForeignKey('token.id'))
     employee = db.relationship('Employee', backref=db.backref('certificates', lazy=True))
     token = db.relationship('Token', backref=db.backref('certificates', lazy=True))
-    imported_at = db.Column(db.DateTime, default=datetime.utcnow)
+    imported_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_valid = db.Column(db.Boolean, default=True)
     
     def __repr__(self):
@@ -121,12 +122,12 @@ class Certificate(db.Model):
     
     @property
     def days_until_expiry(self):
-        delta = self.not_after - datetime.utcnow()
+        delta = self.not_after - datetime.now(timezone.utc)
         return delta.days
     
     @property
     def is_expired(self):
-        return datetime.utcnow() > self.not_after
+        return datetime.now(timezone.utc) > self.not_after
     
     @property
     def status(self):
@@ -170,11 +171,15 @@ def parse_certificate(file_content):
         full_name = None
         snils = None
         inn = None
+        issuer_cn = None
         
         # CN обычно содержит ФИО
         cn = subject_attrs.get('commonName', '')
         if cn:
             full_name = cn
+        
+        # Извлекаем Issuer CN (например, "Федеральное казначейство")
+        issuer_cn = issuer_attrs.get('commonName', '')
         
         # Ищем СНИЛС и ИНН в полях сертификата
         for attr in cert.subject:
@@ -188,7 +193,7 @@ def parse_certificate(file_content):
         
         return {
             'subject': str(cert.subject),
-            'issuer': str(cert.issuer),
+            'issuer': issuer_cn if issuer_cn else str(cert.issuer),
             'serial_number': str(cert.serial_number),
             'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else cert.not_valid_before,
             'not_after': cert.not_valid_after_utc if hasattr(cert, 'not_valid_after_utc') else cert.not_valid_after,
@@ -379,13 +384,28 @@ def organizations_list():
     return render_template('organizations.html', organizations=organizations)
 
 
+@app.route('/organization/<int:org_id>/edit', methods=['GET', 'POST'])
+def edit_organization(org_id):
+    org = Organization.query.get_or_404(org_id)
+    if request.method == 'POST':
+        org.name = request.form['name']
+        org.inn = request.form.get('inn', '')
+        org.kpp = request.form.get('kpp', '')
+        org.ogrn = request.form.get('ogrn', '')
+        db.session.commit()
+        flash('Данные организации обновлены', 'success')
+        return redirect(url_for('organizations_list'))
+    return render_template('organization_form.html', organization=org)
+
+
 @app.route('/organization/add', methods=['GET', 'POST'])
 def add_organization():
     if request.method == 'POST':
         org = Organization(
             name=request.form['name'],
             inn=request.form.get('inn', ''),
-            kpp=request.form.get('kpp', '')
+            kpp=request.form.get('kpp', ''),
+            ogrn=request.form.get('ogrn', '')
         )
         db.session.add(org)
         db.session.commit()
@@ -394,10 +414,17 @@ def add_organization():
     return render_template('organization_form.html', organization=None)
 
 
-@app.route('/departments')
-def departments_list():
-    departments = Department.query.all()
-    return render_template('departments.html', departments=departments)
+@app.route('/department/<int:dept_id>/edit', methods=['GET', 'POST'])
+def edit_department(dept_id):
+    dept = Department.query.get_or_404(dept_id)
+    if request.method == 'POST':
+        dept.name = request.form['name']
+        dept.organization_id = request.form['organization_id']
+        db.session.commit()
+        flash('Данные подразделения обновлены', 'success')
+        return redirect(url_for('departments_list'))
+    organizations = Organization.query.all()
+    return render_template('department_form.html', department=dept, organizations=organizations)
 
 
 @app.route('/department/add', methods=['GET', 'POST'])
@@ -421,6 +448,17 @@ def positions_list():
     return render_template('positions.html', positions=positions)
 
 
+@app.route('/position/<int:pos_id>/edit', methods=['GET', 'POST'])
+def edit_position(pos_id):
+    position = Position.query.get_or_404(pos_id)
+    if request.method == 'POST':
+        position.name = request.form['name']
+        db.session.commit()
+        flash('Данные должности обновлены', 'success')
+        return redirect(url_for('positions_list'))
+    return render_template('position_form.html', position=position)
+
+
 @app.route('/position/add', methods=['GET', 'POST'])
 def add_position():
     if request.method == 'POST':
@@ -436,6 +474,23 @@ def add_position():
 def tokens_list():
     tokens = Token.query.all()
     return render_template('tokens.html', tokens=tokens)
+
+
+@app.route('/token/<int:token_id>/edit', methods=['GET', 'POST'])
+def edit_token(token_id):
+    token = Token.query.get_or_404(token_id)
+    if request.method == 'POST':
+        token.serial_number = request.form['serial_number']
+        token.token_type_id = request.form['token_type_id']
+        token.label = request.form.get('label', '')
+        token.employee_id = request.form.get('employee_id') or None
+        token.is_active = request.form.get('is_active') == 'on'
+        db.session.commit()
+        flash('Данные носителя обновлены', 'success')
+        return redirect(url_for('tokens_list'))
+    token_types = TokenType.query.all()
+    employees = Employee.query.all()
+    return render_template('token_form.html', token=token, token_types=token_types, employees=employees)
 
 
 @app.route('/token/add', methods=['GET', 'POST'])
@@ -461,6 +516,18 @@ def add_token():
 def token_types_list():
     token_types = TokenType.query.all()
     return render_template('token_types.html', token_types=token_types)
+
+
+@app.route('/token-type/<int:type_id>/edit', methods=['GET', 'POST'])
+def edit_token_type(type_id):
+    token_type = TokenType.query.get_or_404(type_id)
+    if request.method == 'POST':
+        token_type.name = request.form['name']
+        token_type.description = request.form.get('description', '')
+        db.session.commit()
+        flash('Данные типа носителя обновлены', 'success')
+        return redirect(url_for('token_types_list'))
+    return render_template('token_type_form.html', token_type=token_type)
 
 
 @app.route('/token-type/add', methods=['GET', 'POST'])
