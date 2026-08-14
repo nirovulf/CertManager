@@ -36,8 +36,10 @@
                         </td>
                         <td>{{ cert.employee.department.organization.name if cert.employee.department and cert.employee.department.organization else '-' }}</td>
                         <td><code>{{ cert.thumbprint[:16] }}...</code></td>
-                        <td>{{ cert.not_before.strftime('%d.%m.%Y') }}</td>
-                        <td>{{ cert.not_after.strftime('%d.%m.%Y') }}</td>
+                        {% set not_before_aware = cert.not_before.replace(tzinfo=timezone.utc) if cert.not_before and cert.not_before.tzinfo == None else cert.not_before %}
+                        {% set not_after_aware = cert.not_after.replace(tzinfo=timezone.utc) if cert.not_after and cert.not_after.tzinfo == None else cert.not_after %}
+                        <td>{{ not_before_aware.strftime('%d.%m.%Y') }}</td>
+                        <td>{{ not_after_aware.strftime('%d.%m.%Y') }}</td>
                         <td>
                             {% if cert.status == 'Действует' %}
                                 <span class="badge status-badge status-valid">{{ cert.status }}</span>
