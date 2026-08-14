@@ -121,6 +121,12 @@
                         <th>Владелец:</th>
                         <td><small>{{ certificate.subject }}</small></td>
                     </tr>
+                    {% if certificate.owner_cn %}
+                    <tr>
+                        <th>Владелец (CN):</th>
+                        <td><strong>{{ certificate.owner_cn }}</strong></td>
+                    </tr>
+                    {% endif %}
                     <tr>
                         <th>Издатель:</th>
                         <td><small>{{ certificate.issuer }}</small></td>

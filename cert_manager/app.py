@@ -138,6 +138,7 @@ class Token(db.Model):
 class Certificate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subject = db.Column(db.Text, nullable=False)
+    owner_cn = db.Column(db.String(200))
     issuer = db.Column(db.Text, nullable=False)
     serial_number = db.Column(db.String(100), nullable=False)
     not_before = db.Column(db.DateTime, nullable=False)
@@ -212,11 +213,13 @@ def parse_certificate(file_content):
         snils = None
         inn = None
         issuer_cn = None
+        owner_cn = None
         
         # CN обычно содержит ФИО
         cn = subject_attrs.get('commonName', '')
         if cn:
             full_name = cn
+            owner_cn = cn
         
         # Извлекаем Issuer CN (например, "Федеральное казначейство")
         issuer_cn = issuer_attrs.get('commonName', '')
@@ -233,6 +236,7 @@ def parse_certificate(file_content):
         
         return {
             'subject': str(cert.subject),
+            'owner_cn': owner_cn,
             'issuer': issuer_cn if issuer_cn else str(cert.issuer),
             'serial_number': str(cert.serial_number),
             'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else make_aware(cert.not_valid_before),
@@ -475,6 +479,7 @@ def import_certificate():
                 # Создаём запись о сертификате
                 certificate = Certificate(
                     subject=cert_data['subject'],
+                    owner_cn=cert_data.get('owner_cn'),
                     issuer=cert_data['issuer'],
                     serial_number=cert_data['serial_number'],
                     not_before=cert_data['not_before'],
@@ -805,9 +810,10 @@ def import_multiple_certificates():
                     error_count += 1
                     continue
                 
-                # Создаём запись о сертификате
+                # Создаём запись о сертификате (массовый импорт)
                 certificate = Certificate(
                     subject=cert_data['subject'],
+                    owner_cn=cert_data.get('owner_cn'),
                     issuer=cert_data['issuer'],
                     serial_number=cert_data['serial_number'],
                     not_before=cert_data['not_before'],
