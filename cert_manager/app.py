@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 import base64
 import os
 
@@ -163,7 +164,7 @@ def parse_certificate(file_content):
             issuer_attrs[oid_name] = attr.value
         
         # Получаем отпечаток (SHA256)
-        thumbprint = base64.b16encode(cert.fingerprint(x509.hashes.SHA256())).decode()
+        thumbprint = base64.b16encode(cert.fingerprint(hashes.SHA256())).decode()
         
         # Пытаемся найти ФИО в сертификате
         full_name = None
