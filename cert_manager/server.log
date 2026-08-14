@@ -1,0 +1,23 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://21.0.7.228:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 979-945-246
+127.0.0.1 - - [14/Aug/2026 03:23:47] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:23:49] "GET /employees HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:23:57] "GET /organizations HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:00] "GET /departments HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:01] "GET /positions HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:01] "GET /tokens HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:01] "GET /token-types HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:03] "GET /import HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:09] "POST /import HTTP/1.1" 302 -
+127.0.0.1 - - [14/Aug/2026 03:24:12] "POST /import HTTP/1.1" 302 -
+127.0.0.1 - - [14/Aug/2026 03:24:15] "POST /import HTTP/1.1" 302 -
+127.0.0.1 - - [14/Aug/2026 03:24:17] "GET /employees HTTP/1.1" 200 -
+127.0.0.1 - - [14/Aug/2026 03:24:29] "GET /certificates HTTP/1.1" 200 -
