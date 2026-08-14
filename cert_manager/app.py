@@ -6,6 +6,15 @@ from datetime import datetime, timedelta, timezone
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
+
+def make_aware(dt):
+    """Делает datetime осознанным (с timezone), если он наивный"""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt
+    return dt.replace(tzinfo=timezone.utc)
+
 import base64
 import os
 
@@ -214,8 +223,8 @@ def parse_certificate(file_content):
             'subject': str(cert.subject),
             'issuer': issuer_cn if issuer_cn else str(cert.issuer),
             'serial_number': str(cert.serial_number),
-            'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else cert.not_valid_before,
-            'not_after': cert.not_valid_after_utc if hasattr(cert, 'not_valid_after_utc') else cert.not_valid_after,
+            'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else make_aware(cert.not_valid_before),
+            'not_after': cert.not_valid_after_utc if hasattr(cert, 'not_valid_after_utc') else make_aware(cert.not_valid_after),
             'thumbprint': thumbprint,
             'certificate_data': base64.b64encode(file_content).decode(),
             'parsed_name': full_name,
@@ -742,6 +751,77 @@ def search_employees():
     } for emp in employees]
     
     return jsonify(results)
+
+
+# === МАРШРУТЫ ДЛЯ МАССОВОГО ИМПОРТА СЕРТИФИКАТОВ ===
+
+@app.route('/import-multiple', methods=['GET', 'POST'])
+@login_required
+def import_multiple_certificates():
+    if request.method == 'POST':
+        if 'files' not in request.files:
+            flash('Файлы не выбраны', 'error')
+            return redirect(request.url)
+        
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            flash('Файлы не выбраны', 'error')
+            return redirect(request.url)
+        
+        success_count = 0
+        error_count = 0
+        duplicate_count = 0
+        
+        for file in files:
+            if file.filename == '':
+                continue
+            
+            try:
+                file_content = file.read()
+                cert_data = parse_certificate(file_content)
+                
+                # Проверяем, нет ли уже такого сертификата
+                existing_cert = Certificate.query.filter_by(thumbprint=cert_data['thumbprint']).first()
+                if existing_cert:
+                    duplicate_count += 1
+                    continue
+                
+                # Находим или создаём сотрудника
+                employee = find_or_create_employee(cert_data)
+                
+                if not employee:
+                    error_count += 1
+                    continue
+                
+                # Создаём запись о сертификате
+                certificate = Certificate(
+                    subject=cert_data['subject'],
+                    issuer=cert_data['issuer'],
+                    serial_number=cert_data['serial_number'],
+                    not_before=cert_data['not_before'],
+                    not_after=cert_data['not_after'],
+                    thumbprint=cert_data['thumbprint'],
+                    certificate_data=cert_data['certificate_data'],
+                    employee_id=employee.id
+                )
+                db.session.add(certificate)
+                success_count += 1
+                
+            except Exception as e:
+                error_count += 1
+        
+        db.session.commit()
+        
+        message = f"Импортировано: {success_count}"
+        if duplicate_count > 0:
+            message += f", дубликатов: {duplicate_count}"
+        if error_count > 0:
+            message += f", ошибок: {error_count}"
+        
+        flash(message, 'success')
+        return redirect(url_for('certificates_list'))
+    
+    return render_template('import_multiple.html')
 
 
 # === ИНИЦИАЛИЗАЦИЯ БД ===
