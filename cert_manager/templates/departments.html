@@ -20,7 +20,7 @@
                         <th>Название</th>
                         <th>Организация</th>
                         <th>Сотрудников</th>
-                        <th>Дата добавления</th>
+                        <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -29,7 +29,11 @@
                         <td><strong>{{ dept.name }}</strong></td>
                         <td>{{ dept.organization.name }}</td>
                         <td>{{ dept.employees|length }}</td>
-                        <td>{{ dept.created_at.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_department', dept_id=dept.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

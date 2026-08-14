@@ -20,7 +20,7 @@
                         <th>Название</th>
                         <th>Описание</th>
                         <th>Носителей</th>
-                        <th>Дата добавления</th>
+                        <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -29,7 +29,11 @@
                         <td><strong>{{ token_type.name }}</strong></td>
                         <td>{{ token_type.description or '-' }}</td>
                         <td>{{ token_type.tokens|length }}</td>
-                        <td>{{ token_type.created_at.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_token_type', type_id=token_type.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
