@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Сертификат {% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Информация о сертификате</h1>
+    <a href="{{ url_for('certificates_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person"></i> Владелец</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>ФИО:</th>
+                        <td>{{ certificate.employee.full_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>СНИЛС:</th>
+                        <td>{{ certificate.employee.snils or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>ИНН:</th>
+                        <td>{{ certificate.employee.inn or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Должность:</th>
+                        <td>{{ certificate.employee.position.name if certificate.employee.position else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Подразделение:</th>
+                        <td>{{ certificate.employee.department.name if certificate.employee.department else '-' }}</td>
+                    </tr>
+                    {% if certificate.employee.department and certificate.employee.department.organization %}
+                    <tr>
+                        <th>Организация:</th>
+                        <td>{{ certificate.employee.department.organization.name }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+                <a href="{{ url_for('edit_employee', emp_id=certificate.employee.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil"></i> Редактировать сотрудника
+                </a>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Статус</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    {% if certificate.status == 'Действует' %}
+                        <span class="badge status-badge status-valid fs-6">{{ certificate.status }}</span>
+                    {% elif certificate.status == 'Истёк' %}
+                        <span class="badge status-badge status-danger fs-6">{{ certificate.status }}</span>
+                    {% elif certificate.status == 'Скоро истекает' %}
+                        <span class="badge status-badge status-warning fs-6">{{ certificate.status }}</span>
+                    {% else %}
+                        <span class="badge status-badge status-info fs-6">{{ certificate.status }}</span>
+                    {% endif %}
+                </div>
+                <div class="progress mb-3" style="height: 25px;">
+                    {% set total_days = (certificate.not_after - certificate.not_before).days %}
+                    {% set elapsed_days = (certificate.not_after - certificate.not_before).days - certificate.days_until_expiry %}
+                    {% set percent = (elapsed_days / total_days * 100)|int if total_days > 0 else 0 %}
+                    <div class="progress-bar 
+                        {% if certificate.is_expired %}bg-danger
+                        {% elif certificate.days_until_expiry <= 30 %}bg-warning
+                        {% elif certificate.days_until_expiry <= 90 %}bg-info
+                        {% else %}bg-success{% endif %}" 
+                        role="progressbar" style="width: {{ percent }}%">
+                    </div>
+                </div>
+                <p class="text-center">
+                    {% if certificate.is_expired %}
+                        Истёк {{ abs(certificate.days_until_expiry) }} дн. назад
+                    {% else %}
+                        Осталось {{ certificate.days_until_expiry }} дн.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-text"></i> Информация о сертификате</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Отпечаток (SHA256):</th>
+                        <td><code>{{ certificate.thumbprint }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Серийный номер:</th>
+                        <td>{{ certificate.serial_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Действителен с:</th>
+                        <td>{{ certificate.not_before.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Действителен до:</th>
+                        <td>{{ certificate.not_after.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Владелец:</th>
+                        <td><small>{{ certificate.subject }}</small></td>
+                    </tr>
+                    <tr>
+                        <th>Издатель:</th>
+                        <td><small>{{ certificate.issuer }}</small></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        {% if certificate.token %}
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-hdd"></i> Носитель</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Тип:</th>
+                        <td>{{ certificate.token.token_type.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Серийный номер:</th>
+                        <td>{{ certificate.token.serial_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Метка:</th>
+                        <td>{{ certificate.token.label or '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

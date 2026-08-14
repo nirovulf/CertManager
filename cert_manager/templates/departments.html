@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Подразделения{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Подразделения</h1>
+    <a href="{{ url_for('add_department') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Добавить подразделение
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if departments %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Организация</th>
+                        <th>Сотрудников</th>
+                        <th>Дата добавления</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dept in departments %}
+                    <tr>
+                        <td><strong>{{ dept.name }}</strong></td>
+                        <td>{{ dept.organization.name }}</td>
+                        <td>{{ dept.employees|length }}</td>
+                        <td>{{ dept.created_at.strftime('%d.%m.%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Подразделения ещё не добавлены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

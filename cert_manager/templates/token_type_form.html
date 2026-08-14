@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать' if token_type else 'Добавить' }} тип носителя{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Редактировать' if token_type else 'Добавить' }} тип носителя</h1>
+    <a href="{{ url_for('token_types_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Название типа *</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ token_type.name if token_type else '' }}" required
+                               placeholder="Например: Рутокен ЭЦП 2.0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Описание</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="Дополнительная информация о типе носителя">{{ token_type.description if token_type else '' }}</textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{{ url_for('token_types_list') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

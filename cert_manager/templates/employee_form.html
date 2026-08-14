@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать' if employee else 'Добавить' }} сотрудника{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Редактировать' if employee else 'Добавить' }} сотрудника</h1>
+    <a href="{{ url_for('employees_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="last_name" class="form-label">Фамилия *</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                   value="{{ employee.last_name if employee else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="first_name" class="form-label">Имя *</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                   value="{{ employee.first_name if employee else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="middle_name" class="form-label">Отчество</label>
+                            <input type="text" class="form-control" id="middle_name" name="middle_name" 
+                                   value="{{ employee.middle_name if employee else '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="snils" class="form-label">СНИЛС</label>
+                            <input type="text" class="form-control" id="snils" name="snils" 
+                                   value="{{ employee.snils if employee else '' }}" placeholder="12345678901">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="inn" class="form-label">ИНН</label>
+                            <input type="text" class="form-control" id="inn" name="inn" 
+                                   value="{{ employee.inn if employee else '' }}" placeholder="123456789012">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="position_id" class="form-label">Должность</label>
+                            <select class="form-select" id="position_id" name="position_id">
+                                <option value="">Не выбрана</option>
+                                {% for position in positions %}
+                                <option value="{{ position.id }}" 
+                                    {% if employee and employee.position and employee.position.id == position.id %}selected{% endif %}>
+                                    {{ position.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="department_id" class="form-label">Подразделение</label>
+                            <select class="form-select" id="department_id" name="department_id">
+                                <option value="">Не выбрано</option>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}" 
+                                    {% if employee and employee.department and employee.department.id == department.id %}selected{% endif %}>
+                                    {{ department.name }} ({{ department.organization.name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{{ url_for('employees_list') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

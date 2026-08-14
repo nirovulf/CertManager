@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Создание сотрудника{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Создание сотрудника</h1>
+    <a href="{{ url_for('employees_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="alert alert-info">
+    <h5><i class="bi bi-info-circle"></i> Данные из сертификата</h5>
+    <p>Следующие данные были автоматически извлечены из сертификата:</p>
+    <ul>
+        {% if cert_data.parsed_name %}
+        <li><strong>ФИО:</strong> {{ cert_data.parsed_name }}</li>
+        {% endif %}
+        {% if cert_data.parsed_snils %}
+        <li><strong>СНИЛС:</strong> {{ cert_data.parsed_snils }}</li>
+        {% endif %}
+        {% if cert_data.parsed_inn %}
+        <li><strong>ИНН:</strong> {{ cert_data.parsed_inn }}</li>
+        {% endif %}
+    </ul>
+    <p class="mb-0">Заполните недостающие данные и нажмите "Сохранить"</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_employee') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="last_name" class="form-label">Фамилия *</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                   value="{{ cert_data.parsed_name.split()[0] if cert_data.parsed_name and cert_data.parsed_name.split() else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="first_name" class="form-label">Имя *</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                   value="{{ cert_data.parsed_name.split()[1] if cert_data.parsed_name and cert_data.parsed_name.split()[1:] else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="middle_name" class="form-label">Отчество</label>
+                            <input type="text" class="form-control" id="middle_name" name="middle_name" 
+                                   value="{{ cert_data.parsed_name.split()[2] if cert_data.parsed_name and cert_data.parsed_name.split()[2:] else '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="snils" class="form-label">СНИЛС</label>
+                            <input type="text" class="form-control" id="snils" name="snils" 
+                                   value="{{ cert_data.parsed_snils or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="inn" class="form-label">ИНН</label>
+                            <input type="text" class="form-control" id="inn" name="inn" 
+                                   value="{{ cert_data.parsed_inn or '' }}">
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" name="cert_thumbprint" value="{{ cert_data.thumbprint }}">
+                    <input type="hidden" name="cert_subject" value="{{ cert_data.subject }}">
+                    <input type="hidden" name="cert_issuer" value="{{ cert_data.issuer }}">
+                    <input type="hidden" name="cert_serial" value="{{ cert_data.serial_number }}">
+                    <input type="hidden" name="cert_not_before" value="{{ cert_data.not_before }}">
+                    <input type="hidden" name="cert_not_after" value="{{ cert_data.not_after }}">
+                    <input type="hidden" name="cert_data" value="{{ cert_data.certificate_data }}">
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить и привязать сертификат
+                        </button>
+                        <a href="{{ url_for('import_certificate') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

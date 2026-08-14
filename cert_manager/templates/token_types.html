@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Типы носителей{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Типы носителей</h1>
+    <a href="{{ url_for('add_token_type') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Добавить тип
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if token_types %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                        <th>Носителей</th>
+                        <th>Дата добавления</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for token_type in token_types %}
+                    <tr>
+                        <td><strong>{{ token_type.name }}</strong></td>
+                        <td>{{ token_type.description or '-' }}</td>
+                        <td>{{ token_type.tokens|length }}</td>
+                        <td>{{ token_type.created_at.strftime('%d.%m.%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Типы носителей ещё не добавлены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
