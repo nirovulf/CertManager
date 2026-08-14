@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Массовый импорт сертификатов{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Массовый импорт сертификатов</h1>
+    <a href="{{ url_for('import_certificate') }}" class="btn btn-outline-primary">
+        <i class="bi bi-upload"></i> Единичный импорт
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-cloud-upload"></i> Загрузка файлов сертификатов</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="files" class="form-label">Файлы сертификатов (.cer, .crt, .pem, .der)</label>
+                        <input type="file" class="form-control" id="files" name="files" multiple 
+                               accept=".cer,.crt,.pem,.der,.txt" required>
+                        <div class="form-text">Можно выбрать несколько файлов одновременно (зажмите Ctrl/Cmd)</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> Импортировать все
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Как это работает</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Выберите несколько файлов сертификатов (форматы CER, CRT, PEM, DER)</li>
+                    <li>Система автоматически извлечёт данные из каждого сертификата</li>
+                    <li>Сертификаты будут привязаны к сотрудникам по данным из сертификатов</li>
+                    <li>Если сотрудник не найден, он будет создан автоматически</li>
+                    <li>Дубликаты сертификатов будут пропущены</li>
+                </ol>
+                <div class="alert alert-info mt-3">
+                    <strong>Примечание:</strong> Система обрабатывает каждый файл отдельно и показывает общую статистику по итогам импорта.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Поддерживаемые форматы</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-filetype-cer text-primary"></i> .CER - сертификат в DER или PEM</li>
+                    <li><i class="bi bi-filetype-crt text-primary"></i> .CRT - сертификат в DER или PEM</li>
+                    <li><i class="bi bi-filetype-pem text-primary"></i> .PEM - сертификат в PEM</li>
+                    <li><i class="bi bi-filetype-der text-primary"></i> .DER - бинарный сертификат</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Преимущества</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Быстрый импорт множества сертификатов</li>
+                    <li>Автоматическое создание сотрудников</li>
+                    <li>Защита от дубликатов</li>
+                    <li>Отчёт об ошибках</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
