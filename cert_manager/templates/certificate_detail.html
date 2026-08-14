@@ -14,25 +14,25 @@
     <div class="col-md-6">
         <div class="card mb-3">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-person"></i> Владелец</h5>
+                <h5 class="mb-0"><i class="bi bi-person"></i> Владелец (CN)</h5>
             </div>
             <div class="card-body">
                 <table class="table table-sm">
                     <tr>
-                        <th>ФИО:</th>
-                        <td>{{ certificate.employee.full_name }}</td>
+                        <th style="width: 40%;">ФИО:</th>
+                        <td>{{ certificate.owner_cn or certificate.employee.full_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>ИНН:</th>
+                        <td>{{ certificate.inn_from_cert or certificate.employee.inn or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Должность:</th>
+                        <td>{{ certificate.position_from_cert or (certificate.employee.position.name if certificate.employee.position else '-') }}</td>
                     </tr>
                     <tr>
                         <th>СНИЛС:</th>
                         <td>{{ certificate.employee.snils or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>ИНН:</th>
-                        <td>{{ certificate.employee.inn or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Должность:</th>
-                        <td>{{ certificate.employee.position.name if certificate.employee.position else '-' }}</td>
                     </tr>
                     <tr>
                         <th>Подразделение:</th>
@@ -118,15 +118,9 @@
                         <td>{{ not_after_aware.strftime('%d.%m.%Y %H:%M') }}</td>
                     </tr>
                     <tr>
-                        <th>Владелец:</th>
-                        <td><small>{{ certificate.subject }}</small></td>
-                    </tr>
-                    {% if certificate.owner_cn %}
-                    <tr>
                         <th>Владелец (CN):</th>
-                        <td><strong>{{ certificate.owner_cn }}</strong></td>
+                        <td><strong>{{ certificate.owner_cn or '-' }}</strong></td>
                     </tr>
-                    {% endif %}
                     <tr>
                         <th>Издатель:</th>
                         <td><small>{{ certificate.issuer }}</small></td>
