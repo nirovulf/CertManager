@@ -147,6 +147,8 @@ class Certificate(db.Model):
     certificate_data = db.Column(db.Text, nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
     token_id = db.Column(db.Integer, db.ForeignKey('token.id'))
+    position_from_cert = db.Column(db.String(200))
+    inn_from_cert = db.Column(db.String(12))
     employee = db.relationship('Employee', backref=db.backref('certificates', lazy=True))
     token = db.relationship('Token', backref=db.backref('certificates', lazy=True))
     imported_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -212,6 +214,7 @@ def parse_certificate(file_content):
         full_name = None
         snils = None
         inn = None
+        position = None
         issuer_cn = None
         owner_cn = None
         
@@ -220,6 +223,11 @@ def parse_certificate(file_content):
         if cn:
             full_name = cn
             owner_cn = cn
+        
+        # T (Title) - должность
+        title = subject_attrs.get('title', '')
+        if title:
+            position = title
         
         # Извлекаем Issuer CN (например, "Федеральное казначейство")
         issuer_cn = issuer_attrs.get('commonName', '')
@@ -237,6 +245,8 @@ def parse_certificate(file_content):
         return {
             'subject': str(cert.subject),
             'owner_cn': owner_cn,
+            'position_from_cert': position,
+            'inn_from_cert': inn,
             'issuer': issuer_cn if issuer_cn else str(cert.issuer),
             'serial_number': str(cert.serial_number),
             'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else make_aware(cert.not_valid_before),
@@ -480,6 +490,8 @@ def import_certificate():
                 certificate = Certificate(
                     subject=cert_data['subject'],
                     owner_cn=cert_data.get('owner_cn'),
+                    position_from_cert=cert_data.get('position_from_cert'),
+                    inn_from_cert=cert_data.get('inn_from_cert'),
                     issuer=cert_data['issuer'],
                     serial_number=cert_data['serial_number'],
                     not_before=cert_data['not_before'],
@@ -814,6 +826,8 @@ def import_multiple_certificates():
                 certificate = Certificate(
                     subject=cert_data['subject'],
                     owner_cn=cert_data.get('owner_cn'),
+                    position_from_cert=cert_data.get('position_from_cert'),
+                    inn_from_cert=cert_data.get('inn_from_cert'),
                     issuer=cert_data['issuer'],
                     serial_number=cert_data['serial_number'],
                     not_before=cert_data['not_before'],

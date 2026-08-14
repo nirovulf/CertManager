@@ -1,5 +1,16 @@
 ```
-# Logs and temp files
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Logs
 *.log
-server.log
+
+# Database files
+*.db
+
+# Environment files
+.env
+.env.local
+*.env.*
 ```
