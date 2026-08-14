@@ -26,6 +26,12 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 
 db = SQLAlchemy(app)
 
+# Добавляем timezone в контекст шаблонов
+@app.context_processor
+def inject_timezone():
+    from datetime import timezone
+    return dict(timezone=timezone)
+
 # Создаем папку для загрузок
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -150,12 +156,18 @@ class Certificate(db.Model):
     
     @property
     def days_until_expiry(self):
-        delta = self.not_after - datetime.now(timezone.utc)
+        not_after = make_aware(self.not_after) if self.not_after else None
+        if not_after is None:
+            return 0
+        delta = not_after - datetime.now(timezone.utc)
         return delta.days
     
     @property
     def is_expired(self):
-        return datetime.now(timezone.utc) > self.not_after
+        not_after = make_aware(self.not_after) if self.not_after else None
+        if not_after is None:
+            return False
+        return datetime.now(timezone.utc) > not_after
     
     @property
     def status(self):

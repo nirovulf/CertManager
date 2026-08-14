@@ -68,8 +68,10 @@
                     {% endif %}
                 </div>
                 <div class="progress mb-3" style="height: 25px;">
-                    {% set total_days = (certificate.not_after - certificate.not_before).days %}
-                    {% set elapsed_days = (certificate.not_after - certificate.not_before).days - certificate.days_until_expiry %}
+                    {% set not_before_aware = cert.not_before.replace(tzinfo=timezone.utc) if cert.not_before and cert.not_before.tzinfo == None else cert.not_before %}
+                    {% set not_after_aware = cert.not_after.replace(tzinfo=timezone.utc) if cert.not_after and cert.not_after.tzinfo == None else cert.not_after %}
+                    {% set total_days = (not_after_aware - not_before_aware).days %}
+                    {% set elapsed_days = total_days - certificate.days_until_expiry %}
                     {% set percent = (elapsed_days / total_days * 100)|int if total_days > 0 else 0 %}
                     <div class="progress-bar 
                         {% if certificate.is_expired %}bg-danger
@@ -107,11 +109,13 @@
                     </tr>
                     <tr>
                         <th>Действителен с:</th>
-                        <td>{{ certificate.not_before.strftime('%d.%m.%Y %H:%M') }}</td>
+                        {% set not_before_aware = certificate.not_before.replace(tzinfo=timezone.utc) if certificate.not_before and certificate.not_before.tzinfo == None else certificate.not_before %}
+                        <td>{{ not_before_aware.strftime('%d.%m.%Y %H:%M') }}</td>
                     </tr>
                     <tr>
                         <th>Действителен до:</th>
-                        <td>{{ certificate.not_after.strftime('%d.%m.%Y %H:%M') }}</td>
+                        {% set not_after_aware = certificate.not_after.replace(tzinfo=timezone.utc) if certificate.not_after and certificate.not_after.tzinfo == None else certificate.not_after %}
+                        <td>{{ not_after_aware.strftime('%d.%m.%Y %H:%M') }}</td>
                     </tr>
                     <tr>
                         <th>Владелец:</th>
