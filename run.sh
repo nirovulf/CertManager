@@ -50,14 +50,14 @@ fi
 echo "🔄 Активация виртуального окружения..."
 source venv/bin/activate
 
-# Обновление pip
+# Обновление pip (с обходом externally-managed-environment)
 echo "🔄 Обновление pip..."
-pip install --upgrade pip --quiet
+pip install --upgrade pip --quiet 2>/dev/null || pip install --upgrade pip --break-system-packages --quiet
 
 # Установка зависимостей
 if [ -f "requirements.txt" ]; then
     echo "🔄 Установка зависимостей из requirements.txt..."
-    pip install -r requirements.txt --quiet
+    pip install -r requirements.txt --quiet 2>/dev/null || pip install -r requirements.txt --break-system-packages --quiet
     echo "✅ Зависимости установлены"
 else
     echo "❌ Файл requirements.txt не найден"
