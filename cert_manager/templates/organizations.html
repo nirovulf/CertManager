@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Организации{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Организации</h1>
+    <a href="{{ url_for('add_organization') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Добавить организацию
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if organizations %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>ИНН</th>
+                        <th>КПП</th>
+                        <th>Подразделения</th>
+                        <th>Дата добавления</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org in organizations %}
+                    <tr>
+                        <td><strong>{{ org.name }}</strong></td>
+                        <td>{{ org.inn or '-' }}</td>
+                        <td>{{ org.kpp or '-' }}</td>
+                        <td>{{ org.departments|length }}</td>
+                        <td>{{ org.created_at.strftime('%d.%m.%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Организации ещё не добавлены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

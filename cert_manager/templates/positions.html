@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Должности{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Должности</h1>
+    <a href="{{ url_for('add_position') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Добавить должность
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if positions %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Название должности</th>
+                        <th>Сотрудников</th>
+                        <th>Дата добавления</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for position in positions %}
+                    <tr>
+                        <td><strong>{{ position.name }}</strong></td>
+                        <td>{{ position.employees|length }}</td>
+                        <td>{{ position.created_at.strftime('%d.%m.%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Должности ещё не добавлены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

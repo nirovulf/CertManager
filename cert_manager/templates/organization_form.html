@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать' if organization else 'Добавить' }} организацию{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Редактировать' if organization else 'Добавить' }} организацию</h1>
+    <a href="{{ url_for('organizations_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Название организации *</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ organization.name if organization else '' }}" required>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="inn" class="form-label">ИНН</label>
+                            <input type="text" class="form-control" id="inn" name="inn" 
+                                   value="{{ organization.inn if organization else '' }}" placeholder="1234567890">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="kpp" class="form-label">КПП</label>
+                            <input type="text" class="form-control" id="kpp" name="kpp" 
+                                   value="{{ organization.kpp if organization else '' }}" placeholder="123456789">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{{ url_for('organizations_list') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

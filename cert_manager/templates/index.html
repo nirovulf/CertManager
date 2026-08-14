@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Учёт сертификатов{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Панель управления</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Всего сертификатов</h5>
+                <p class="card-text display-6">{{ certificates|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Действуют</h5>
+                <p class="card-text display-6">{{ certificates|selectattr('status', 'equalto', 'Действует')|list|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Скоро истекают</h5>
+                <p class="card-text display-6">{{ certificates|selectattr('status', 'equalto', 'Скоро истекает')|list|length + certificates|selectattr('status', 'equalto', 'Требует внимания')|list|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <h5 class="card-title">Истекли</h5>
+                <p class="card-text display-6">{{ certificates|selectattr('status', 'equalto', 'Истёк')|list|length }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Последние сертификаты</h5>
+        <a href="{{ url_for('import_certificate') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-upload"></i> Импортировать
+        </a>
+    </div>
+    <div class="card-body">
+        {% if certificates %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Владелец</th>
+                        <th>Отпечаток</th>
+                        <th>Действителен до</th>
+                        <th>Статус</th>
+                        <th>Дней до истечения</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in certificates[:10] %}
+                    <tr>
+                        <td>{{ cert.employee.full_name }}</td>
+                        <td><code>{{ cert.thumbprint[:20] }}...</code></td>
+                        <td>{{ cert.not_after.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            {% if cert.status == 'Действует' %}
+                                <span class="badge status-badge status-valid">{{ cert.status }}</span>
+                            {% elif cert.status == 'Истёк' %}
+                                <span class="badge status-badge status-danger">{{ cert.status }}</span>
+                            {% elif cert.status == 'Скоро истекает' %}
+                                <span class="badge status-badge status-warning">{{ cert.status }}</span>
+                            {% else %}
+                                <span class="badge status-badge status-info">{{ cert.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cert.days_until_expiry < 0 %}
+                                <span class="text-danger">{{ cert.days_until_expiry }}</span>
+                            {% elif cert.days_until_expiry <= 30 %}
+                                <span class="text-warning">{{ cert.days_until_expiry }}</span>
+                            {% else %}
+                                {{ cert.days_until_expiry }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <a href="{{ url_for('certificates_list') }}" class="btn btn-outline-primary">Показать все сертификаты</a>
+        {% else %}
+        <p class="text-muted">Сертификаты ещё не добавлены. <a href="{{ url_for('import_certificate') }}">Импортируйте первый сертификат</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

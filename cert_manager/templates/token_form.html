@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать' if token else 'Добавить' }} носитель{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Редактировать' if token else 'Добавить' }} носитель</h1>
+    <a href="{{ url_for('tokens_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="token_type_id" class="form-label">Тип носителя *</label>
+                        <select class="form-select" id="token_type_id" name="token_type_id" required>
+                            <option value="">Выберите тип</option>
+                            {% for token_type in token_types %}
+                            <option value="{{ token_type.id }}" 
+                                {% if token and token.token_type_id == token_type.id %}selected{% endif %}>
+                                {{ token_type.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="serial_number" class="form-label">Серийный номер *</label>
+                        <input type="text" class="form-control" id="serial_number" name="serial_number" 
+                               value="{{ token.serial_number if token else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="label" class="form-label">Метка (описание)</label>
+                        <input type="text" class="form-control" id="label" name="label" 
+                               value="{{ token.label if token else '' }}" placeholder="Например: Рутокен ЭЦП 2.0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="employee_id" class="form-label">Сотрудник</label>
+                        <select class="form-select" id="employee_id" name="employee_id">
+                            <option value="">Не назначен</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}" 
+                                {% if token and token.employee_id == employee.id %}selected{% endif %}>
+                                {{ employee.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
+                               {% if not token or token.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">Активен</label>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{{ url_for('tokens_list') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

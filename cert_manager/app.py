@@ -1,0 +1,523 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timedelta
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+import base64
+import os
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///certificates.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
+
+db = SQLAlchemy(app)
+
+# Создаем папку для загрузок
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# === МОДЕЛИ ДАННЫХ ===
+
+class Organization(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), unique=True, nullable=False)
+    inn = db.Column(db.String(12))
+    kpp = db.Column(db.String(9))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Organization {self.name}>'
+
+
+class Department(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    organization = db.relationship('Organization', backref=db.backref('departments', lazy=True))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Department {self.name}>'
+
+
+class Position(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Position {self.name}>'
+
+
+class Employee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    last_name = db.Column(db.String(100), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    middle_name = db.Column(db.String(100))
+    snils = db.Column(db.String(11))
+    inn = db.Column(db.String(12))
+    position_id = db.Column(db.Integer, db.ForeignKey('position.id'))
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'))
+    position = db.relationship('Position', backref=db.backref('employees', lazy=True))
+    department = db.relationship('Department', backref=db.backref('employees', lazy=True))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @property
+    def full_name(self):
+        return f"{self.last_name} {self.first_name} {self.middle_name or ''}".strip()
+    
+    def __repr__(self):
+        return f'<Employee {self.full_name}>'
+
+
+class TokenType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)  # Например: Рутокен, JaCarta, eToken
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<TokenType {self.name}>'
+
+
+class Token(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    serial_number = db.Column(db.String(100), unique=True, nullable=False)
+    token_type_id = db.Column(db.Integer, db.ForeignKey('token_type.id'), nullable=False)
+    token_type = db.relationship('TokenType', backref=db.backref('tokens', lazy=True))
+    label = db.Column(db.String(200))
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'))
+    employee = db.relationship('Employee', backref=db.backref('tokens', lazy=True))
+    issued_at = db.Column(db.Date)
+    returned_at = db.Column(db.Date)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Token {self.serial_number}>'
+
+
+class Certificate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    subject = db.Column(db.Text, nullable=False)
+    issuer = db.Column(db.Text, nullable=False)
+    serial_number = db.Column(db.String(100), nullable=False)
+    not_before = db.Column(db.DateTime, nullable=False)
+    not_after = db.Column(db.DateTime, nullable=False)
+    thumbprint = db.Column(db.String(64), unique=True, nullable=False)
+    certificate_data = db.Column(db.Text, nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    token_id = db.Column(db.Integer, db.ForeignKey('token.id'))
+    employee = db.relationship('Employee', backref=db.backref('certificates', lazy=True))
+    token = db.relationship('Token', backref=db.backref('certificates', lazy=True))
+    imported_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_valid = db.Column(db.Boolean, default=True)
+    
+    def __repr__(self):
+        return f'<Certificate {self.thumbprint[:16]}...>'
+    
+    @property
+    def days_until_expiry(self):
+        delta = self.not_after - datetime.utcnow()
+        return delta.days
+    
+    @property
+    def is_expired(self):
+        return datetime.utcnow() > self.not_after
+    
+    @property
+    def status(self):
+        if self.is_expired:
+            return 'Истёк'
+        days = self.days_until_expiry
+        if days <= 30:
+            return 'Скоро истекает'
+        elif days <= 90:
+            return 'Требует внимания'
+        return 'Действует'
+
+
+# === ФУНКЦИИ ПАРСИНГА СЕРТИФИКАТОВ ===
+
+def parse_certificate(file_content):
+    """Парсит сертификат и извлекает информацию"""
+    try:
+        # Пробуем как DER
+        try:
+            cert = x509.load_der_x509_certificate(file_content, default_backend())
+        except:
+            # Пробуем как PEM
+            cert = x509.load_pem_x509_certificate(file_content, default_backend())
+        
+        # Извлекаем данные из сертификата
+        subject_attrs = {}
+        for attr in cert.subject:
+            oid_name = attr.oid._name
+            subject_attrs[oid_name] = attr.value
+        
+        issuer_attrs = {}
+        for attr in cert.issuer:
+            oid_name = attr.oid._name
+            issuer_attrs[oid_name] = attr.value
+        
+        # Получаем отпечаток (SHA256)
+        thumbprint = base64.b16encode(cert.fingerprint(x509.hashes.SHA256())).decode()
+        
+        # Пытаемся найти ФИО в сертификате
+        full_name = None
+        snils = None
+        inn = None
+        
+        # CN обычно содержит ФИО
+        cn = subject_attrs.get('commonName', '')
+        if cn:
+            full_name = cn
+        
+        # Ищем СНИЛС и ИНН в полях сертификата
+        for attr in cert.subject:
+            value = attr.value
+            # СНИЛС обычно 11 цифр
+            if len(value) == 11 and value.isdigit():
+                snils = value
+            # ИНН 10 или 12 цифр
+            elif len(value) in [10, 12] and value.isdigit() and not snils:
+                inn = value
+        
+        return {
+            'subject': str(cert.subject),
+            'issuer': str(cert.issuer),
+            'serial_number': str(cert.serial_number),
+            'not_before': cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else cert.not_valid_before,
+            'not_after': cert.not_valid_after_utc if hasattr(cert, 'not_valid_after_utc') else cert.not_valid_after,
+            'thumbprint': thumbprint,
+            'certificate_data': base64.b64encode(file_content).decode(),
+            'parsed_name': full_name,
+            'parsed_snils': snils,
+            'parsed_inn': inn
+        }
+    except Exception as e:
+        raise ValueError(f"Ошибка парсинга сертификата: {str(e)}")
+
+
+def find_or_create_employee(parsed_data):
+    """Находит или создаёт сотрудника на основе данных из сертификата"""
+    # Сначала ищем по СНИЛС
+    if parsed_data.get('parsed_snils'):
+        employee = Employee.query.filter_by(snils=parsed_data['parsed_snils']).first()
+        if employee:
+            return employee
+    
+    # Затем по ИНН
+    if parsed_data.get('parsed_inn'):
+        employee = Employee.query.filter_by(inn=parsed_data['parsed_inn']).first()
+        if employee:
+            return employee
+    
+    # Пытаемся распарсить ФИО
+    full_name = parsed_data.get('parsed_name', '')
+    if full_name:
+        parts = full_name.split()
+        if len(parts) >= 2:
+            last_name = parts[0]
+            first_name = parts[1]
+            middle_name = parts[2] if len(parts) > 2 else ''
+            
+            # Ищем по фамилии и имени
+            employee = Employee.query.filter_by(
+                last_name=last_name,
+                first_name=first_name
+            ).first()
+            if employee:
+                return employee
+            
+            # Если не нашли, создаём нового
+            employee = Employee(
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=middle_name,
+                snils=parsed_data.get('parsed_snils'),
+                inn=parsed_data.get('parsed_inn')
+            )
+            db.session.add(employee)
+            db.session.commit()
+            return employee
+    
+    return None
+
+
+# === МАРШРУТЫ ===
+
+@app.route('/')
+def index():
+    certificates = Certificate.query.order_by(Certificate.imported_at.desc()).all()
+    return render_template('index.html', certificates=certificates)
+
+
+@app.route('/certificates')
+def certificates_list():
+    certificates = Certificate.query.order_by(Certificate.not_after.asc()).all()
+    return render_template('certificates.html', certificates=certificates)
+
+
+@app.route('/import', methods=['GET', 'POST'])
+def import_certificate():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('Файл не выбран', 'error')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('Файл не выбран', 'error')
+            return redirect(request.url)
+        
+        if file:
+            try:
+                file_content = file.read()
+                cert_data = parse_certificate(file_content)
+                
+                # Проверяем, нет ли уже такого сертификата
+                existing_cert = Certificate.query.filter_by(thumbprint=cert_data['thumbprint']).first()
+                if existing_cert:
+                    flash('Такой сертификат уже загружен', 'warning')
+                    return redirect(url_for('certificates_list'))
+                
+                # Находим или создаём сотрудника
+                employee = find_or_create_employee(cert_data)
+                
+                if not employee:
+                    flash('Не удалось автоматически определить владельца сертификата. Создайте сотрудника вручную.', 'warning')
+                    return render_template('manual_employee.html', cert_data=cert_data)
+                
+                # Создаём запись о сертификате
+                certificate = Certificate(
+                    subject=cert_data['subject'],
+                    issuer=cert_data['issuer'],
+                    serial_number=cert_data['serial_number'],
+                    not_before=cert_data['not_before'],
+                    not_after=cert_data['not_after'],
+                    thumbprint=cert_data['thumbprint'],
+                    certificate_data=cert_data['certificate_data'],
+                    employee_id=employee.id
+                )
+                db.session.add(certificate)
+                db.session.commit()
+                
+                flash(f'Сертификат успешно импортирован для сотрудника {employee.full_name}', 'success')
+                return redirect(url_for('certificate_detail', cert_id=certificate.id))
+                
+            except ValueError as e:
+                flash(str(e), 'error')
+            except Exception as e:
+                flash(f'Ошибка при импорте: {str(e)}', 'error')
+        
+        return redirect(request.url)
+    
+    return render_template('import.html')
+
+
+@app.route('/certificate/<int:cert_id>')
+def certificate_detail(cert_id):
+    certificate = Certificate.query.get_or_404(cert_id)
+    return render_template('certificate_detail.html', certificate=certificate)
+
+
+@app.route('/employees')
+def employees_list():
+    employees = Employee.query.order_by(Employee.last_name.asc()).all()
+    return render_template('employees.html', employees=employees)
+
+
+@app.route('/employee/add', methods=['GET', 'POST'])
+def add_employee():
+    if request.method == 'POST':
+        employee = Employee(
+            last_name=request.form['last_name'],
+            first_name=request.form['first_name'],
+            middle_name=request.form.get('middle_name', ''),
+            snils=request.form.get('snils', ''),
+            inn=request.form.get('inn', ''),
+            position_id=request.form.get('position_id') or None,
+            department_id=request.form.get('department_id') or None
+        )
+        db.session.add(employee)
+        db.session.commit()
+        flash('Сотрудник успешно добавлен', 'success')
+        return redirect(url_for('employees_list'))
+    
+    positions = Position.query.all()
+    departments = Department.query.all()
+    return render_template('employee_form.html', employee=None, positions=positions, departments=departments)
+
+
+@app.route('/employee/<int:emp_id>/edit', methods=['GET', 'POST'])
+def edit_employee(emp_id):
+    employee = Employee.query.get_or_404(emp_id)
+    if request.method == 'POST':
+        employee.last_name = request.form['last_name']
+        employee.first_name = request.form['first_name']
+        employee.middle_name = request.form.get('middle_name', '')
+        employee.snils = request.form.get('snils', '')
+        employee.inn = request.form.get('inn', '')
+        employee.position_id = request.form.get('position_id') or None
+        employee.department_id = request.form.get('department_id') or None
+        db.session.commit()
+        flash('Данные сотрудника обновлены', 'success')
+        return redirect(url_for('employees_list'))
+    
+    positions = Position.query.all()
+    departments = Department.query.all()
+    return render_template('employee_form.html', employee=employee, positions=positions, departments=departments)
+
+
+@app.route('/organizations')
+def organizations_list():
+    organizations = Organization.query.all()
+    return render_template('organizations.html', organizations=organizations)
+
+
+@app.route('/organization/add', methods=['GET', 'POST'])
+def add_organization():
+    if request.method == 'POST':
+        org = Organization(
+            name=request.form['name'],
+            inn=request.form.get('inn', ''),
+            kpp=request.form.get('kpp', '')
+        )
+        db.session.add(org)
+        db.session.commit()
+        flash('Организация успешно добавлена', 'success')
+        return redirect(url_for('organizations_list'))
+    return render_template('organization_form.html', organization=None)
+
+
+@app.route('/departments')
+def departments_list():
+    departments = Department.query.all()
+    return render_template('departments.html', departments=departments)
+
+
+@app.route('/department/add', methods=['GET', 'POST'])
+def add_department():
+    if request.method == 'POST':
+        dept = Department(
+            name=request.form['name'],
+            organization_id=request.form['organization_id']
+        )
+        db.session.add(dept)
+        db.session.commit()
+        flash('Подразделение успешно добавлено', 'success')
+        return redirect(url_for('departments_list'))
+    organizations = Organization.query.all()
+    return render_template('department_form.html', department=None, organizations=organizations)
+
+
+@app.route('/positions')
+def positions_list():
+    positions = Position.query.all()
+    return render_template('positions.html', positions=positions)
+
+
+@app.route('/position/add', methods=['GET', 'POST'])
+def add_position():
+    if request.method == 'POST':
+        position = Position(name=request.form['name'])
+        db.session.add(position)
+        db.session.commit()
+        flash('Должность успешно добавлена', 'success')
+        return redirect(url_for('positions_list'))
+    return render_template('position_form.html', position=None)
+
+
+@app.route('/tokens')
+def tokens_list():
+    tokens = Token.query.all()
+    return render_template('tokens.html', tokens=tokens)
+
+
+@app.route('/token/add', methods=['GET', 'POST'])
+def add_token():
+    if request.method == 'POST':
+        token = Token(
+            serial_number=request.form['serial_number'],
+            token_type_id=request.form['token_type_id'],
+            label=request.form.get('label', ''),
+            employee_id=request.form.get('employee_id') or None,
+            is_active=request.form.get('is_active') == 'on'
+        )
+        db.session.add(token)
+        db.session.commit()
+        flash('Носитель успешно добавлен', 'success')
+        return redirect(url_for('tokens_list'))
+    token_types = TokenType.query.all()
+    employees = Employee.query.all()
+    return render_template('token_form.html', token=None, token_types=token_types, employees=employees)
+
+
+@app.route('/token-types')
+def token_types_list():
+    token_types = TokenType.query.all()
+    return render_template('token_types.html', token_types=token_types)
+
+
+@app.route('/token-type/add', methods=['GET', 'POST'])
+def add_token_type():
+    if request.method == 'POST':
+        token_type = TokenType(
+            name=request.form['name'],
+            description=request.form.get('description', '')
+        )
+        db.session.add(token_type)
+        db.session.commit()
+        flash('Тип носителя успешно добавлен', 'success')
+        return redirect(url_for('token_types_list'))
+    return render_template('token_type_form.html', token_type=None)
+
+
+@app.route('/api/employees/search')
+def search_employees():
+    query = request.args.get('q', '')
+    employees = Employee.query.filter(
+        (Employee.last_name.ilike(f'%{query}%')) |
+        (Employee.first_name.ilike(f'%{query}%')) |
+        (Employee.snils.ilike(f'%{query}%')) |
+        (Employee.inn.ilike(f'%{query}%'))
+    ).limit(10).all()
+    
+    results = [{
+        'id': emp.id,
+        'full_name': emp.full_name,
+        'snils': emp.snils,
+        'inn': emp.inn
+    } for emp in employees]
+    
+    return jsonify(results)
+
+
+# === ИНИЦИАЛИЗАЦИЯ БД ===
+
+def init_db():
+    with app.app_context():
+        db.create_all()
+        
+        # Добавляем начальные данные если пусто
+        if not TokenType.query.first():
+            default_types = ['Рутокен', 'JaCarta', 'eToken', 'Токен УЭК', 'Другой']
+            for type_name in default_types:
+                token_type = TokenType(name=type_name)
+                db.session.add(token_type)
+            db.session.commit()
+        
+        if not Position.query.first():
+            default_positions = ['Директор', 'Главный бухгалтер', 'Бухгалтер', 'Менеджер', 'Специалист', 'Администратор']
+            for pos_name in default_positions:
+                position = Position(name=pos_name)
+                db.session.add(position)
+            db.session.commit()
+
+
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True, host='0.0.0.0', port=5000)
